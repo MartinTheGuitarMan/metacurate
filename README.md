@@ -68,11 +68,19 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
 
 `classify` is the mirror image of `SystemOneModel`: instead of ranking many
 catalog items against one use case, it ranks many labeled candidates
-against one piece of state — e.g. "which protocol is this raw sample?". See
-[`examples/classify_protocol.py`](examples/classify_protocol.py) for a
-worked example that classifies raw maritime telemetry (NMEA 0183 GGA/RMC
-lines, a Modbus-style engine-telemetry record) by protocol, using the
-smaller `KevClient` backend.
+against one piece of state, using the same `SystemOneClient.ask_noul` seam:
+
+```python
+from metacurate.catalog import CatalogItem
+from metacurate.classify import classify
+from metacurate.kev import KevClient
+
+labels = [
+    CatalogItem(id="spam", metadata={"description": "unsolicited bulk email"}),
+    CatalogItem(id="not_spam", metadata={"description": "a legitimate message"}),
+]
+ranked = classify(KevClient(), "Buy now, limited offer!!!", labels)
+```
 
 ## Design
 
