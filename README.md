@@ -18,7 +18,8 @@ pip install -e ".[dev]"
 `SystemOneModel` needs a `SystemOneClient` for whichever System One model
 you bring — see [Model backends](docs/model-backends.md) for the
 ready-to-use `LayaClient` (requires Node.js 20+ and `npm install
-@receptron/laya`) or wiring up your own.
+@receptron/laya`), `KevClient` (a lighter option that runs comfortably on
+constrained hardware like a 16GB Apple Silicon Mac), or wiring up your own.
 
 ## Usage
 
@@ -63,6 +64,16 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
     print(result.item.id, "-", result.rationale)
 ```
 
+### Classify instead of curate
+
+`classify` is the mirror image of `SystemOneModel`: instead of ranking many
+catalog items against one use case, it ranks many labeled candidates
+against one piece of state — e.g. "which protocol is this raw sample?". See
+[`examples/classify_protocol.py`](examples/classify_protocol.py) for a
+worked example that classifies raw maritime telemetry (NMEA 0183 GGA/RMC
+lines, a Modbus-style engine-telemetry record) by protocol, using the
+smaller `KevClient` backend.
+
 ## Design
 
 - `Catalog` / `CatalogItem` — load metadata from JSON, CSV, or Excel; each
@@ -73,14 +84,16 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
   system, by implementing the same interface.
 - `Curator` — orchestrates loading a catalog and a model into a curated,
   justified list.
-- `SystemOneModel` — bring your own System One model (TypeSafe's Jev, an
-  open alternative like `LayaClient`, or a backend of your own) through the
-  `SystemOneClient.ask_noul` seam.
+- `SystemOneModel` — bring your own System One model (TypeSafe's Jev, open
+  alternatives like `LayaClient` or `KevClient`, or a backend of your own)
+  through the `SystemOneClient.ask_noul` seam.
+- `classify` — the same `ask_noul` seam, used to score one raw item against
+  a fixed set of labeled candidates instead of ranking a catalog.
 
 See [`docs/`](docs/) for the full picture: [architecture](docs/architecture.md),
 [catalog formats](docs/catalog-formats.md), [model backends](docs/model-backends.md)
-(including how to wire up `SystemOneModel`/`LayaClient` or write your own),
-and [CLI and web app usage](docs/cli-and-web.md).
+(including how to wire up `SystemOneModel`/`LayaClient`/`KevClient` or write
+your own), and [CLI and web app usage](docs/cli-and-web.md).
 
 ## Tests
 

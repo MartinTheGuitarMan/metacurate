@@ -5,8 +5,9 @@
 - [Catalog formats](catalog-formats.md) — loading JSON, CSV, and Excel
   catalogs, and how to describe a use case.
 - [Model backends](model-backends.md) — bring-your-own
-  `SystemOneModel`/`SystemOneClient`, the `LayaClient` reference
-  implementation, and writing a non-System-One `CurationModel`.
+  `SystemOneModel`/`SystemOneClient`, the `LayaClient` and `KevClient`
+  reference implementations, classifying a single item with `classify`,
+  and writing a non-System-One `CurationModel`.
 - [CLI and web app](cli-and-web.md) — flags, options, and swapping in a
   different model backend for either front end.
 
