@@ -17,14 +17,14 @@ class FakeSystemOneClient:
 
 def test_classify_ranks_labels_by_probability_descending():
     labels = [
-        CatalogItem(id="gga", metadata={"description": "a GGA sentence"}),
-        CatalogItem(id="rmc", metadata={"description": "an RMC sentence"}),
+        CatalogItem(id="spam", metadata={"description": "unsolicited bulk email"}),
+        CatalogItem(id="not_spam", metadata={"description": "a legitimate message"}),
     ]
-    client = FakeSystemOneClient({"gga": 0.9, "rmc": 0.1})
+    client = FakeSystemOneClient({"spam": 0.9, "not_spam": 0.1})
 
-    ranked = classify(client, "$GPGGA,...", labels)
+    ranked = classify(client, "Buy now, limited offer!!!", labels)
 
-    assert ranked == [("gga", 0.9), ("rmc", 0.1)]
+    assert ranked == [("spam", 0.9), ("not_spam", 0.1)]
 
 
 def test_classify_evaluates_every_label_against_the_shared_state():

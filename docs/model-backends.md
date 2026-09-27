@@ -131,9 +131,8 @@ the response body included).
 `SystemOneModel` answers "which of these catalog items fits this use
 case?" — many items, one use case. Sometimes the question is the mirror
 image: "which of these known labels does this one item match?" — one item,
-many labels. That's a classification task (e.g. "which protocol is this
-raw sample?"), and it reuses the exact same `SystemOneClient.ask_noul`
-seam, just with the roles swapped:
+many labels. That's a classification task, and it reuses the exact same
+`SystemOneClient.ask_noul` seam, just with the roles swapped:
 
 ```python
 from metacurate.catalog import CatalogItem
@@ -145,11 +144,6 @@ labels = [
 ]
 ranked = classify(client, "raw item text", labels)  # [(label_id, probability), ...] most likely first
 ```
-
-See [`examples/classify_protocol.py`](../examples/classify_protocol.py) for
-a worked example: classifying raw maritime telemetry samples (an NMEA 0183
-GGA line, an NMEA 0183 RMC line, a Modbus-style engine telemetry record) by
-protocol/message type, using `KevClient` against `examples/protocol_labels.json`.
 
 ## Writing a non-System-One `CurationModel`
 
