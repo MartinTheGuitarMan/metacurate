@@ -4,7 +4,7 @@ metacurate has three moving pieces, each independent of the others:
 
 ```
 Catalog  ──items──▶  Curator  ◀──picks──  CurationModel
-(load)                (orchestrate)        (AnthropicModel / SystemOneModel / your own)
+(load)                (orchestrate)        (SystemOneModel / your own)
 ```
 
 ## `Catalog` and `CatalogItem`
@@ -29,11 +29,10 @@ def curate(self, items: list[CatalogItem], use_case: str, limit: int) -> list[tu
     """Return up to `limit` (item_id, rationale) pairs, most relevant first."""
 ```
 
-metacurate ships two implementations — `AnthropicModel` and `SystemOneModel`
-(see [model-backends.md](model-backends.md)) — but the interface is the
-extension point: a non-LLM system (a rules engine, a human review queue, a
-cached lookup) is a valid `CurationModel` as long as it returns
-`(id, rationale)` pairs.
+metacurate ships `SystemOneModel` (see [model-backends.md](model-backends.md))
+— but the interface is the extension point: an LLM, a rules engine, a human
+review queue, a cached lookup, anything, is a valid `CurationModel` as long
+as it returns `(id, rationale)` pairs.
 
 ## `Curator`
 
