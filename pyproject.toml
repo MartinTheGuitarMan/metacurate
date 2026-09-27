@@ -1,0 +1,20 @@
+[project]
+name = "metacurate"
+version = "0.1.0"
+description = "Curate a metadata catalog into a list tailored to a use case, using a pluggable AI model"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+metacurate = "metacurate.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
