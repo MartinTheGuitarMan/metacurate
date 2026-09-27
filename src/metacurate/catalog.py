@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,12 +29,49 @@ class Catalog:
 
     @classmethod
     def from_json(cls, path: str | Path) -> Catalog:
-        data = json.loads(Path(path).read_text())
-        items = [CatalogItem(id=str(entry.pop("id")), metadata=entry) for entry in data]
+        return cls.from_json_text(Path(path).read_text())
+
+    @classmethod
+    def from_json_text(cls, text: str) -> Catalog:
+        data = json.loads(text)
+        items = []
+        for index, entry in enumerate(data):
+            entry = dict(entry)
+            item_id = str(entry.pop("id")) if "id" in entry else str(index)
+            items.append(CatalogItem(id=item_id, metadata=entry))
         return cls(items)
 
     @classmethod
     def from_csv(cls, path: str | Path) -> Catalog:
-        with Path(path).open(newline="") as f:
-            items = [CatalogItem(id=row.pop("id"), metadata=row) for row in csv.DictReader(f)]
+        return cls.from_csv_text(Path(path).read_text())
+
+    @classmethod
+    def from_csv_text(cls, text: str) -> Catalog:
+        items = []
+        for index, row in enumerate(csv.DictReader(io.StringIO(text))):
+            row = dict(row)
+            item_id = row.pop("id") if "id" in row else str(index)
+            items.append(CatalogItem(id=item_id, metadata=row))
+        return cls(items)
+
+    @classmethod
+    def from_excel(cls, path: str | Path) -> Catalog:
+        return cls.from_excel_bytes(Path(path).read_bytes())
+
+    @classmethod
+    def from_excel_bytes(cls, data: bytes) -> Catalog:
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        rows = workbook.active.iter_rows(values_only=True)
+        headers = [str(h) for h in next(rows)]
+        items = []
+        for index, row in enumerate(rows):
+            entry = {
+                headers[i]: ("" if value is None else str(value))
+                for i, value in enumerate(row)
+                if i < len(headers)
+            }
+            item_id = entry.pop("id") if "id" in entry else str(index)
+            items.append(CatalogItem(id=item_id, metadata=entry))
         return cls(items)
