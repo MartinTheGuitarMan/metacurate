@@ -1,8 +1,8 @@
 from metacurate.catalog import CatalogItem
-from metacurate.models import JevModel, NoulAnswer, NoulQuestion
+from metacurate.models import NoulAnswer, NoulQuestion, SystemOneModel
 
 
-class FakeJevClient:
+class FakeSystemOneClient:
     def __init__(self, probabilities):
         self.probabilities = probabilities
         self.last_state = None
@@ -14,13 +14,13 @@ class FakeJevClient:
         return [NoulAnswer(id=q.id, probability=self.probabilities[q.id]) for q in questions]
 
 
-def test_jev_model_ranks_by_probability_descending():
+def test_system_one_model_ranks_by_probability_descending():
     items = [
         CatalogItem(id="a", metadata={"name": "Alpha"}),
         CatalogItem(id="b", metadata={"name": "Beta"}),
         CatalogItem(id="c", metadata={"name": "Gamma"}),
     ]
-    model = JevModel(client=FakeJevClient({"a": 0.2, "b": 0.9, "c": 0.5}))
+    model = SystemOneModel(client=FakeSystemOneClient({"a": 0.2, "b": 0.9, "c": 0.5}))
 
     picks = model.curate(items, "demo use case", limit=2)
 
@@ -28,10 +28,10 @@ def test_jev_model_ranks_by_probability_descending():
     assert "0.90" in picks[0][1]
 
 
-def test_jev_model_asks_one_noul_question_per_item():
+def test_system_one_model_asks_one_noul_question_per_item():
     items = [CatalogItem(id="a", metadata={}), CatalogItem(id="b", metadata={})]
-    client = FakeJevClient({"a": 0.1, "b": 0.1})
-    model = JevModel(client=client)
+    client = FakeSystemOneClient({"a": 0.1, "b": 0.1})
+    model = SystemOneModel(client=client)
 
     model.curate(items, "demo", limit=2)
 

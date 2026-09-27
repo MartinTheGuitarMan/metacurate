@@ -68,31 +68,36 @@ class NoulAnswer:
     probability: float
 
 
-class JevClient(Protocol):
-    """The slice of the Jev API/SDK metacurate needs.
+class SystemOneClient(Protocol):
+    """The slice of a System One model's API/SDK metacurate needs.
 
-    A Jev request is a block of state (string, JSON object, or array of text)
-    plus one or more typed questions, evaluated against that state in a single
-    parallel pass (https://en.wikipedia.org/wiki/Jev_(AI_model)). metacurate
-    only uses the `Noul` primitive — a yes/no statement scored 0-1 — since it
-    maps directly onto "how relevant is this item?" per catalog item.
+    "System One" names a class of models — TypeSafe's Jev
+    (https://en.wikipedia.org/wiki/Jev_(AI_model)) and open alternatives like
+    Laya (see `metacurate.laya.LayaClient`) among them — that take a block of
+    state (string, JSON object, or array of text) plus one or more typed
+    questions, evaluated against that state in a single parallel pass, and
+    return structured answers instead of free text. metacurate only uses the
+    `Noul` primitive shared across these models — a yes/no statement scored
+    0-1 — since it maps directly onto "how relevant is this item?" per
+    catalog item.
 
-    TypeSafe hasn't published Jev's request/response wire format, auth scheme,
-    or SDK package name, so this is the integration seam to implement against
-    the real client once you have access to it, not a working network call.
+    Bring your own System One model by implementing this seam: wrap
+    whichever backend you have access to (Jev, Laya, or another) in a class
+    with `ask_noul`, and hand it to `SystemOneModel`.
     """
 
     def ask_noul(self, state: str, questions: list[NoulQuestion]) -> list[NoulAnswer]:
         ...
 
 
-class JevModel:
-    """Curates using Jev: one Noul question per catalog item ("is this item a
-    strong match for the use case?"), evaluated against the whole catalog as
-    shared state in a single Jev request, then ranked by returned probability.
+class SystemOneModel:
+    """Curates using any System One model: one Noul question per catalog item
+    ("is this item a strong match for the use case?"), evaluated against the
+    whole catalog as shared state in a single request, then ranked by
+    returned probability. Works with whatever `SystemOneClient` you bring.
     """
 
-    def __init__(self, client: JevClient):
+    def __init__(self, client: SystemOneClient):
         self._client = client
 
     def curate(
