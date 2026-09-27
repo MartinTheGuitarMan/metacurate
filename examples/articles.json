@@ -1,0 +1,8 @@
+[
+  {"id": "onboarding-101", "title": "Getting started with your account", "tags": "onboarding,setup"},
+  {"id": "billing-faq", "title": "Billing and invoices FAQ", "tags": "billing,support"},
+  {"id": "api-auth", "title": "Authenticating API requests", "tags": "api,developer"},
+  {"id": "team-roles", "title": "Managing team roles and permissions", "tags": "admin,onboarding"},
+  {"id": "webhooks-intro", "title": "Introduction to webhooks", "tags": "api,developer"},
+  {"id": "data-export", "title": "Exporting your data", "tags": "admin,support"}
+]
