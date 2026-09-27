@@ -33,14 +33,30 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
 
 ## Design
 
-- `Catalog` / `CatalogItem` — load metadata from JSON or CSV; each item is
-  just an `id` and a `dict` of metadata, no fixed schema.
+- `Catalog` / `CatalogItem` — load metadata from JSON, CSV, or Excel; each
+  item is just an `id` and a `dict` of metadata, no fixed schema.
 - `CurationModel` — the interface any model backend implements: given the
   catalog items and a use case, return `(id, rationale)` pairs. `AnthropicModel`
   is the built-in implementation; swap in any other model, or a
   non-LLM system, by implementing the same interface.
 - `Curator` — orchestrates loading a catalog and a model into a curated,
   justified list.
+
+### Model backends
+
+- **`AnthropicModel`** — asks Claude to pick and justify the top `limit`
+  items in one prompt; the response is free-text JSON.
+- **`JevModel`** — targets [Jev](https://en.wikipedia.org/wiki/Jev_(AI_model)),
+  TypeSafe's structured-answer model. A Jev request pairs a block of state
+  with one or more typed questions ("primitives": `Choice`, `Score`, `Noul`)
+  evaluated together in a single parallel pass, returning structured answers
+  instead of free text. `JevModel` asks one `Noul` question per catalog item
+  — *"is this item a strong match for the use case?"* — against the whole
+  catalog as shared state, and ranks items by the returned probability.
+  TypeSafe hasn't published Jev's request/response format or SDK, so
+  `JevModel` takes a `client` implementing `JevClient.ask_noul(state,
+  questions)` — that's the seam to wire up the real SDK once you have access
+  to it; see `tests/test_models.py` for a fake client illustrating the shape.
 
 ## Tests
 
