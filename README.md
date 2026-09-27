@@ -57,6 +57,22 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
   `JevModel` takes a `client` implementing `JevClient.ask_noul(state,
   questions)` — that's the seam to wire up the real SDK once you have access
   to it; see `tests/test_models.py` for a fake client illustrating the shape.
+- **`LayaClient`** (`metacurate.jev_laya`) — a stand-in `JevClient` for while
+  you're waiting on Jev access, backed by [Laya](https://github.com/receptron/laya),
+  an open-source, Jev-compatible System One model that runs locally via ONNX
+  Runtime. Laya ships as an npm package, so `LayaClient` shells out to a
+  bundled Node.js bridge script rather than binding to it directly. Requires
+  Node.js 20+ and `npm install @receptron/laya` (its ~1.7GB ONNX weights
+  auto-download from Hugging Face on first use):
+
+  ```python
+  from metacurate.jev_laya import LayaClient
+  from metacurate.models import JevModel
+
+  curator = Curator(model=JevModel(client=LayaClient()))
+  ```
+
+  Swap in the real Jev client later with no other code changes.
 
 ## Tests
 
