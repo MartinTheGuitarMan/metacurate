@@ -6,18 +6,19 @@ from flask import Flask, render_template, request
 
 from .catalog import Catalog
 from .curator import Curator
-from .models import AnthropicModel, CurationModel
+from .laya import LayaClient
+from .models import CurationModel, SystemOneModel
 
 ALLOWED_EXTENSIONS = {".csv", ".json", ".xlsx"}
 
 
 def create_app(model: CurationModel | None = None) -> Flask:
-    """Build the Flask app. Pass `model` to override the default AnthropicModel (e.g. in tests)."""
+    """Build the Flask app. Pass `model` to override the default SystemOneModel (e.g. in tests)."""
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
     def get_model() -> CurationModel:
-        return model if model is not None else AnthropicModel()
+        return model if model is not None else SystemOneModel(client=LayaClient())
 
     @app.route("/", methods=["GET", "POST"])
     def index():

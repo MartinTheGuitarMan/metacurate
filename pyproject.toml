@@ -1,12 +1,11 @@
 [project]
 name = "metacurate"
 version = "0.1.0"
-description = "Curate a metadata catalog into a list tailored to a use case, using a pluggable AI model"
+description = "Curate a metadata catalog into a list tailored to a use case, using a pluggable System One model"
 requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-anthropic = ["anthropic>=0.40.0"]
 web = ["flask>=3.0", "openpyxl>=3.1"]
 dev = ["pytest>=8.0", "flask>=3.0", "openpyxl>=3.1"]
 

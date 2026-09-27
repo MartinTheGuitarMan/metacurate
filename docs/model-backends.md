@@ -4,26 +4,6 @@ Every backend implements `CurationModel.curate(items, use_case, limit) ->
 list[tuple[str, str]]` (see [architecture.md](architecture.md)). This page
 covers the ones metacurate ships, and how to add your own.
 
-## `AnthropicModel`
-
-`metacurate.models.AnthropicModel`
-
-Asks Claude to pick and justify the top `limit` items in a single prompt.
-The whole catalog (every item's `id` and `metadata`) is serialized into the
-prompt text, so this backend scales to however many items fit in the
-model's context window — for very large catalogs, pre-filter before
-handing items to `Curator`.
-
-```python
-from metacurate.models import AnthropicModel
-
-model = AnthropicModel(model="claude-sonnet-5")  # or pass client=... for testing
-```
-
-The response is parsed as free-text JSON
-(`[{"id": "...", "why": "..."}, ...]`); a response that isn't valid JSON in
-that shape raises rather than silently returning nothing.
-
 ## `SystemOneModel` and `SystemOneClient` — bring your own System One model
 
 "System One" names a class of models that answer typed questions
@@ -95,9 +75,9 @@ curator = Curator(model=SystemOneModel(client=LayaClient()))
 script both raise `RuntimeError` with the underlying cause (a "Node.js not
 found" message, or the bridge's stderr), rather than failing silently.
 
-## Writing a non-LLM `CurationModel`
+## Writing a non-System-One `CurationModel`
 
-`CurationModel` doesn't require an AI backend at all — a rules engine, a
+`CurationModel` doesn't require a System One model at all — an LLM, a rules engine, a
 cached lookup, or a human review queue all qualify as long as `curate`
 returns `(id, rationale)` pairs:
 

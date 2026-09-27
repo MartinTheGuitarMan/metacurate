@@ -4,9 +4,9 @@
   `Curator` fit together, and where to extend them.
 - [Catalog formats](catalog-formats.md) — loading JSON, CSV, and Excel
   catalogs, and how to describe a use case.
-- [Model backends](model-backends.md) — `AnthropicModel`, bring-your-own
+- [Model backends](model-backends.md) — bring-your-own
   `SystemOneModel`/`SystemOneClient`, the `LayaClient` reference
-  implementation, and writing a non-LLM `CurationModel`.
+  implementation, and writing a non-System-One `CurationModel`.
 - [CLI and web app](cli-and-web.md) — flags, options, and swapping in a
   different model backend for either front end.
 
