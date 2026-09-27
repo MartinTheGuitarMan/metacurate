@@ -22,6 +22,32 @@ ready-to-use `LayaClient` (requires Node.js 20+ and `npm install
 
 ## Usage
 
+### Try it in 30 seconds, no model to install
+
+`CurationModel` is just an interface — anything that returns `(id, rationale)`
+pairs works, so you can see the whole `Catalog` → `Curator` pipeline run with
+a trivial keyword matcher and nothing else to install:
+
+```python
+from metacurate import Catalog, Curator
+
+class KeywordModel:
+    def curate(self, items, use_case, limit):
+        matches = [item for item in items if use_case.lower() in str(item.metadata).lower()]
+        return [(item.id, "keyword match") for item in matches[:limit]]
+
+catalog = Catalog.from_json("examples/articles.json")
+curator = Curator(model=KeywordModel())
+for result in curator.curate(catalog, "onboarding", limit=3):
+    print(result.item.id, "-", result.rationale)
+```
+
+### Curate with a real System One model
+
+The CLI, web app, and `SystemOneModel` all use an actual model's judgment
+instead of keyword matching — by default, `LayaClient` (requires Node.js 20+
+and `npm install @receptron/laya`; see [Model backends](docs/model-backends.md)):
+
 ```bash
 metacurate examples/articles.json "onboarding a new team admin" -n 3
 ```
