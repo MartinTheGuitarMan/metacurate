@@ -54,7 +54,7 @@ class AnthropicModel:
 
 @dataclass(frozen=True)
 class NoulQuestion:
-    """A single yes/no statement to evaluate against Jev's shared state."""
+    """A single yes/no statement to evaluate against a System One model's shared state."""
 
     id: str
     statement: str
@@ -62,7 +62,7 @@ class NoulQuestion:
 
 @dataclass(frozen=True)
 class NoulAnswer:
-    """Jev's answer to one NoulQuestion: probability the statement is true, 0-1."""
+    """A System One model's answer to one NoulQuestion: probability the statement is true, 0-1."""
 
     id: str
     probability: float

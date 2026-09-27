@@ -1,0 +1,109 @@
+# Model backends
+
+Every backend implements `CurationModel.curate(items, use_case, limit) ->
+list[tuple[str, str]]` (see [architecture.md](architecture.md)). This page
+covers the ones metacurate ships, and how to add your own.
+
+## `AnthropicModel`
+
+`metacurate.models.AnthropicModel`
+
+Asks Claude to pick and justify the top `limit` items in a single prompt.
+The whole catalog (every item's `id` and `metadata`) is serialized into the
+prompt text, so this backend scales to however many items fit in the
+model's context window — for very large catalogs, pre-filter before
+handing items to `Curator`.
+
+```python
+from metacurate.models import AnthropicModel
+
+model = AnthropicModel(model="claude-sonnet-5")  # or pass client=... for testing
+```
+
+The response is parsed as free-text JSON
+(`[{"id": "...", "why": "..."}, ...]`); a response that isn't valid JSON in
+that shape raises rather than silently returning nothing.
+
+## `SystemOneModel` and `SystemOneClient` — bring your own System One model
+
+"System One" names a class of models that answer typed questions
+(`Choice`, `Score`, `Noul`) against a block of shared state in a single
+parallel pass, returning calibrated probabilities instead of free text.
+TypeSafe's Jev is one such model; open alternatives exist too (see
+`LayaClient` below).
+
+`SystemOneModel` asks one `Noul` question per catalog item — *"is this item
+a strong match for the use case?"* — against the whole catalog as shared
+state in one request, then ranks items by the returned probability. It
+doesn't talk to any particular backend directly; it takes a
+`SystemOneClient`:
+
+```python
+class SystemOneClient(Protocol):
+    def ask_noul(self, state: str, questions: list[NoulQuestion]) -> list[NoulAnswer]:
+        ...
+```
+
+To bring your own backend, implement `ask_noul`: turn `state` (a JSON string
+of the catalog) and `questions` (one `NoulQuestion(id, statement)` per item)
+into whatever request shape your model expects, and return one
+`NoulAnswer(id, probability)` per question. `tests/test_models.py`'s
+`FakeSystemOneClient` shows the minimal shape; `metacurate.laya.LayaClient`
+shows a real one.
+
+```python
+from metacurate.models import SystemOneModel
+
+curator = Curator(model=SystemOneModel(client=YourClient()))
+```
+
+## `LayaClient` — a ready-made `SystemOneClient`
+
+`metacurate.laya.LayaClient`
+
+Backed by [Laya](https://github.com/receptron/laya), an open-source,
+Jev-compatible System One model that runs locally via ONNX Runtime — useful
+if you don't have Jev access yet, or want a self-hosted backend.
+
+**Requirements**: Node.js 20+ on the machine running metacurate, and
+`npm install @receptron/laya`. The model's ONNX weights (~1.7GB) auto-download
+from Hugging Face the first time it's used, and are cached afterward.
+
+**How it works**: Laya ships as a Node.js/TypeScript package, not a Python
+one, so `LayaClient` doesn't bind to it in-process. Instead:
+
+1. `LayaClient.ask_noul` serializes `{state, questions}` to JSON.
+2. It runs `node src/metacurate/laya_bridge.mjs`, piping that JSON to stdin.
+3. The bridge script loads Laya, asks all questions as `noul` primitives in
+   one batched `systemOne()` call, and writes `{answers: [...]}` JSON to
+   stdout.
+4. `LayaClient` parses that back into `NoulAnswer` objects.
+
+```python
+from metacurate.laya import LayaClient
+from metacurate.models import SystemOneModel
+
+curator = Curator(model=SystemOneModel(client=LayaClient()))
+```
+
+**Configuration**: `LayaClient(node_bin="node", script=None, timeout=300.0)`
+— override `node_bin` if `node` isn't on `PATH` under that name, or `timeout`
+(seconds) if scoring a large catalog takes longer than the default 5 minutes
+(the first call also pays for the one-time model download).
+
+**Errors**: a missing `node` binary or a non-zero exit from the bridge
+script both raise `RuntimeError` with the underlying cause (a "Node.js not
+found" message, or the bridge's stderr), rather than failing silently.
+
+## Writing a non-LLM `CurationModel`
+
+`CurationModel` doesn't require an AI backend at all — a rules engine, a
+cached lookup, or a human review queue all qualify as long as `curate`
+returns `(id, rationale)` pairs:
+
+```python
+class KeywordModel:
+    def curate(self, items, use_case, limit):
+        matches = [item for item in items if use_case.lower() in str(item.metadata).lower()]
+        return [(item.id, "keyword match") for item in matches[:limit]]
+```
