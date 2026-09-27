@@ -1,11 +1,11 @@
-"""A JevClient backed by Laya (https://github.com/receptron/laya): an
+"""A SystemOneClient backed by Laya (https://github.com/receptron/laya): an
 open-source, Jev-compatible System One decision model that runs locally via
 ONNX Runtime, from Convai Innovations.
 
 Laya ships as a Node.js package, not a Python one, so `LayaClient` shells out
-to a small bundled bridge script (`jev_laya_bridge.mjs`) rather than binding
-to it directly. This is a stand-in for the real, waitlisted Jev API: swap
-`LayaClient` for the real client once you have access, with no other changes
+to a small bundled bridge script (`laya_bridge.mjs`) rather than binding to
+it directly. It's one example of "bring your own System One model" — swap
+it for Jev, another backend, or a client of your own, with no other changes
 to `metacurate`.
 
 Requires Node.js 20+ and `npm install @receptron/laya` on the machine running
@@ -21,11 +21,11 @@ from pathlib import Path
 
 from .models import NoulAnswer, NoulQuestion
 
-_BRIDGE_SCRIPT = Path(__file__).parent / "jev_laya_bridge.mjs"
+_BRIDGE_SCRIPT = Path(__file__).parent / "laya_bridge.mjs"
 
 
 class LayaClient:
-    """Implements JevClient.ask_noul by running Laya through a Node.js bridge."""
+    """Implements SystemOneClient.ask_noul by running Laya through a Node.js bridge."""
 
     def __init__(self, node_bin: str = "node", script: Path | None = None, timeout: float = 300.0):
         self._node_bin = node_bin

@@ -46,33 +46,35 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
 
 - **`AnthropicModel`** — asks Claude to pick and justify the top `limit`
   items in one prompt; the response is free-text JSON.
-- **`JevModel`** — targets [Jev](https://en.wikipedia.org/wiki/Jev_(AI_model)),
-  TypeSafe's structured-answer model. A Jev request pairs a block of state
-  with one or more typed questions ("primitives": `Choice`, `Score`, `Noul`)
-  evaluated together in a single parallel pass, returning structured answers
-  instead of free text. `JevModel` asks one `Noul` question per catalog item
-  — *"is this item a strong match for the use case?"* — against the whole
-  catalog as shared state, and ranks items by the returned probability.
-  TypeSafe hasn't published Jev's request/response format or SDK, so
-  `JevModel` takes a `client` implementing `JevClient.ask_noul(state,
-  questions)` — that's the seam to wire up the real SDK once you have access
-  to it; see `tests/test_models.py` for a fake client illustrating the shape.
-- **`LayaClient`** (`metacurate.jev_laya`) — a stand-in `JevClient` for while
-  you're waiting on Jev access, backed by [Laya](https://github.com/receptron/laya),
-  an open-source, Jev-compatible System One model that runs locally via ONNX
-  Runtime. Laya ships as an npm package, so `LayaClient` shells out to a
-  bundled Node.js bridge script rather than binding to it directly. Requires
-  Node.js 20+ and `npm install @receptron/laya` (its ~1.7GB ONNX weights
-  auto-download from Hugging Face on first use):
+- **`SystemOneModel`** — bring your own [System One
+  model](https://en.wikipedia.org/wiki/Jev_(AI_model)): TypeSafe's Jev, an
+  open alternative like Laya, or a backend of your own. A System One request
+  pairs a block of state with one or more typed questions ("primitives":
+  `Choice`, `Score`, `Noul`) evaluated together in a single parallel pass,
+  returning structured answers instead of free text. `SystemOneModel` asks
+  one `Noul` question per catalog item — *"is this item a strong match for
+  the use case?"* — against the whole catalog as shared state, and ranks
+  items by the returned probability. The seam is `SystemOneClient.ask_noul(state,
+  questions)`: implement it against whichever backend you have access to and
+  hand it to `SystemOneModel`; see `tests/test_models.py` for a fake client
+  illustrating the shape, and `LayaClient` below for a real one.
+- **`LayaClient`** (`metacurate.laya`) — a `SystemOneClient` backed by
+  [Laya](https://github.com/receptron/laya), an open-source, Jev-compatible
+  System One model that runs locally via ONNX Runtime — handy if you're
+  waiting on Jev access, or just don't want a proprietary dependency. Laya
+  ships as an npm package, so `LayaClient` shells out to a bundled Node.js
+  bridge script rather than binding to it directly. Requires Node.js 20+ and
+  `npm install @receptron/laya` (its ~1.7GB ONNX weights auto-download from
+  Hugging Face on first use):
 
   ```python
-  from metacurate.jev_laya import LayaClient
-  from metacurate.models import JevModel
+  from metacurate.laya import LayaClient
+  from metacurate.models import SystemOneModel
 
-  curator = Curator(model=JevModel(client=LayaClient()))
+  curator = Curator(model=SystemOneModel(client=LayaClient()))
   ```
 
-  Swap in the real Jev client later with no other code changes.
+  Swap in Jev or another backend later with no other code changes.
 
 ## Tests
 
