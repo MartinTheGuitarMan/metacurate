@@ -7,10 +7,12 @@ dependencies = []
 
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.40.0"]
-dev = ["pytest>=8.0"]
+web = ["flask>=3.0", "openpyxl>=3.1"]
+dev = ["pytest>=8.0", "flask>=3.0", "openpyxl>=3.1"]
 
 [project.scripts]
 metacurate = "metacurate.cli:main"
+metacurate-web = "metacurate.webapp:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -18,3 +20,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+metacurate = ["templates/*.html"]
