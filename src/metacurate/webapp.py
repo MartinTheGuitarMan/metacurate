@@ -23,7 +23,7 @@ def create_app(model: CurationModel | None = None) -> Flask:
     @app.route("/", methods=["GET", "POST"])
     def index():
         if request.method == "GET":
-            return render_template("index.html")
+            return render_template("index.html", error=None, results=None, question=None, limit=None)
 
         file = request.files.get("catalog")
         question = request.form.get("question", "").strip()
