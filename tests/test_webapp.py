@@ -15,6 +15,13 @@ def test_get_index_renders_form():
     assert b"metacurate" in response.data
 
 
+def test_get_index_shows_no_results_or_error_before_any_submission():
+    client = create_app(model=FakeModel()).test_client()
+    response = client.get("/")
+    assert b"No matches found" not in response.data
+    assert b'<div class="error">' not in response.data
+
+
 def test_missing_file_shows_error():
     client = create_app(model=FakeModel()).test_client()
     response = client.post("/", data={"question": "demo"})
