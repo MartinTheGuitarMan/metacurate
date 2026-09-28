@@ -37,6 +37,31 @@ from metacurate.models import SystemOneModel
 curator = Curator(model=SystemOneModel(client=YourClient()))
 ```
 
+## `JevClient` — a ready-made `SystemOneClient`
+
+`metacurate.jev.JevClient`
+
+Calls TypeSafe's Jev directly, via the official `typesafe-sdk` package.
+
+**Requirements**: `pip install metacurate[jev]` (or `pip install typesafe-sdk`
+directly), and a Jev API key from https://console.typesafe.ai.
+
+**Configuration**: `JevClient(api_key=None, model=None, timeout=60.0)` — with
+no `api_key`, it reads the `TYPESAFE_API_KEY` environment variable, matching
+the official SDK's convention. `model` overrides the SDK's default model
+alias (e.g. to pin a specific Jev version); `timeout` is seconds per request.
+
+```python
+from metacurate.jev import JevClient
+from metacurate.models import SystemOneModel
+
+curator = Curator(model=SystemOneModel(client=JevClient()))
+```
+
+**Errors**: a missing `typesafe-sdk` install, a missing/empty API key, and
+any failure from the underlying API call all raise `RuntimeError` with the
+underlying cause, rather than failing silently.
+
 ## `LayaClient` — a ready-made `SystemOneClient`
 
 `metacurate.laya.LayaClient`
