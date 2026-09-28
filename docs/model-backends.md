@@ -9,8 +9,8 @@ covers the ones metacurate ships, and how to add your own.
 "System One" names a class of models that answer typed questions
 (`Choice`, `Score`, `Noul`) against a block of shared state in a single
 parallel pass, returning calibrated probabilities instead of free text.
-TypeSafe's Jev is one such model; open alternatives exist too (see
-`LayaClient` below).
+TypeSafe's Jev is one such model (see `JevClient` below); open alternatives
+exist too (see `LayaClient` below).
 
 `SystemOneModel` asks one `Noul` question per catalog item — *"is this item
 a strong match for the use case?"* — against the whole catalog as shared
@@ -36,6 +36,41 @@ from metacurate.models import SystemOneModel
 
 curator = Curator(model=SystemOneModel(client=YourClient()))
 ```
+
+## `JevClient` — a ready-made `SystemOneClient` for TypeSafe's Jev
+
+`metacurate.jev.JevClient`
+
+Talks to TypeSafe's Jev over the real API, via the official
+[`typesafe-sdk`](https://github.com/typesafe-ai/typesafe-sdk-python) package.
+
+**Requirements**: `pip install metacurate[jev]` (or `pip install
+typesafe-sdk` directly), and a `TYPESAFE_API_KEY` in the environment.
+`JevClient` doesn't read the key itself — it constructs a `TypeSafeClient`
+with whatever keyword arguments you pass through, and that SDK resolves
+`api_key`, `base_url`, `default_model`, and `timeout` from its own
+constructor arguments or the matching `TYPESAFE_*` environment variables,
+exactly as the official client does.
+
+**How it works**: one `Noul` question per catalog item, batched into a
+single `system_one` request keyed by item id — the same shape
+`SystemOneModel` already builds — then `NoulAnswer`s are read back off
+`result.nouls[item_id].noul`.
+
+```python
+from metacurate.jev import JevClient
+from metacurate.models import SystemOneModel
+
+curator = Curator(model=SystemOneModel(client=JevClient()))
+```
+
+Pass constructor keyword arguments straight through to `TypeSafeClient`,
+e.g. `JevClient(model="jev-1.13.0", timeout=30.0)`.
+
+**Errors**: a missing `typesafe-sdk` install raises `RuntimeError` with
+install instructions; everything else (auth, rate limits, connectivity)
+surfaces as the SDK's own typed exceptions (`TypeSafeAuthenticationError`,
+`TypeSafeRateLimitError`, `TypeSafeAPIConnectionError`, etc.).
 
 ## `LayaClient` — a ready-made `SystemOneClient`
 

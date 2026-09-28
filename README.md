@@ -17,8 +17,9 @@ pip install -e ".[dev]"
 
 `SystemOneModel` needs a `SystemOneClient` for whichever System One model
 you bring — see [Model backends](docs/model-backends.md) for the
-ready-to-use `LayaClient` (requires Node.js 20+ and `npm install
-@receptron/laya`) or wiring up your own.
+ready-to-use `JevClient` (TypeSafe's Jev, via `pip install
+metacurate[jev]` and a `TYPESAFE_API_KEY`), `LayaClient` (requires
+Node.js 20+ and `npm install @receptron/laya`), or wiring up your own.
 
 ## Usage
 
