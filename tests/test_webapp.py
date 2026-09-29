@@ -1,7 +1,7 @@
 import base64
 import io
 
-from metacurate.webapp import create_app
+from metacurate.webapp import _display_title, create_app
 
 
 class FakeModel:
@@ -12,6 +12,23 @@ class FakeModel:
 def _basic_auth_header(username: str, password: str) -> dict:
     token = base64.b64encode(f"{username}:{password}".encode()).decode()
     return {"Authorization": f"Basic {token}"}
+
+
+def test_display_title_picks_name_field_case_insensitively():
+    assert _display_title({"Name": "Alpha", "tag": "x"}) == "Alpha"
+
+
+def test_display_title_falls_back_through_preference_order():
+    assert _display_title({"title": "Beta", "label": "Gamma"}) == "Beta"
+    assert _display_title({"label": "Gamma"}) == "Gamma"
+
+
+def test_display_title_skips_empty_values():
+    assert _display_title({"name": "", "label": "Gamma"}) == "Gamma"
+
+
+def test_display_title_returns_none_when_no_title_field():
+    assert _display_title({"vessel_type": "Chemical Tanker"}) is None
 
 
 def test_get_index_renders_form():
@@ -173,3 +190,25 @@ def test_metadata_renders_as_key_value_list_not_raw_dict():
     assert b"{&#39;name&#39;: &#39;Alpha&#39;}" not in response.data  # not a raw dict repr
     assert b"<dt>name</dt>" in response.data
     assert b"<dd>Alpha</dd>" in response.data
+
+
+def test_metadata_summary_shows_a_title_when_a_name_field_is_present():
+    client = create_app(model=FakeModel()).test_client()
+    data = {
+        "catalog": (io.BytesIO(b"id,name,tag\na,Alpha,x\n"), "catalog.csv"),
+        "question": "demo",
+    }
+    response = client.post("/", data=data, content_type="multipart/form-data")
+    assert b'<span class="meta-title">Alpha</span>' in response.data
+    assert b"2 fields" in response.data  # name + tag
+
+
+def test_metadata_summary_falls_back_to_field_count_without_a_title_field():
+    client = create_app(model=FakeModel()).test_client()
+    data = {
+        "catalog": (io.BytesIO(b"id,vessel_type\na,Chemical Tanker\n"), "catalog.csv"),
+        "question": "demo",
+    }
+    response = client.post("/", data=data, content_type="multipart/form-data")
+    assert b'class="meta-title"' not in response.data
+    assert b"1 field<" in response.data

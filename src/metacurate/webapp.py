@@ -31,6 +31,22 @@ def _probability_from_rationale(rationale: str) -> float | None:
     return value if 0.0 <= value <= 1.0 else None
 
 
+_TITLE_FIELDS = ("name", "title", "label")
+
+
+def _display_title(metadata: dict) -> str | None:
+    """Pick a human-readable title out of a catalog item's metadata, if it has
+    one — catalogs have no fixed schema, so this just checks a few common
+    field names (case-insensitively) and returns the first non-empty match.
+    """
+    by_lower_key = {key.lower(): value for key, value in metadata.items()}
+    for field in _TITLE_FIELDS:
+        value = by_lower_key.get(field)
+        if value:
+            return str(value)
+    return None
+
+
 def _default_model() -> CurationModel:
     """The SystemOneClient to use when no model override is passed to create_app.
 
@@ -53,6 +69,7 @@ def create_app(model: CurationModel | None = None) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
     app.jinja_env.filters["probability"] = _probability_from_rationale
+    app.jinja_env.filters["display_title"] = _display_title
 
     def get_model() -> CurationModel:
         return model if model is not None else _default_model()
