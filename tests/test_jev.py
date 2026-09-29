@@ -4,9 +4,14 @@ import types
 from metacurate.models import NoulQuestion
 
 
-def _install_fake_typesafe_sdk(system_one_calls):
+class FakeTypeSafeBadRequestError(Exception):
+    pass
+
+
+def _install_fake_typesafe_sdk(system_one_calls, error_to_raise=None):
     """Register a fake `typesafe_sdk` module so JevClient's lazy import resolves
-    to test doubles instead of the real SDK.
+    to test doubles instead of the real SDK. Pass `error_to_raise` to make
+    `system_one` raise it instead of returning a fake response.
     """
 
     class FakeNoul:
@@ -27,6 +32,8 @@ def _install_fake_typesafe_sdk(system_one_calls):
 
         def system_one(self, *, state, questions):
             system_one_calls.append({"state": state, "questions": questions})
+            if error_to_raise is not None:
+                raise error_to_raise
             return FakeSystemOneResponse(
                 {qid: FakeNoulAnswer(noul=0.5) for qid in questions}
             )
@@ -37,6 +44,7 @@ def _install_fake_typesafe_sdk(system_one_calls):
     module = types.ModuleType("typesafe_sdk")
     module.Noul = FakeNoul
     module.TypeSafeClient = FakeTypeSafeClient
+    module.TypeSafeBadRequestError = FakeTypeSafeBadRequestError
     sys.modules["typesafe_sdk"] = module
     return module
 
@@ -101,3 +109,44 @@ def test_jev_client_missing_sdk_raises_runtime_error(monkeypatch, capsys):
         raised = "typesafe-sdk" in str(exc)
 
     assert raised
+
+
+def test_jev_client_translates_max_tokens_exceeded_into_friendly_error():
+    error = FakeTypeSafeBadRequestError(
+        'POST https://api.typesafe.ai/v1/systemone: 400 '
+        '{"detail":{"error_type":"max_tokens_exceeded"}} (request_id=req_test)'
+    )
+    _install_fake_typesafe_sdk([], error_to_raise=error)
+    sys.modules.pop("metacurate.jev", None)
+    from metacurate.jev import JevClient
+
+    client = JevClient()
+    questions = [NoulQuestion(id="a", statement="q")]
+
+    try:
+        client.ask_noul("{}", questions)
+        raised = None
+    except ValueError as exc:
+        raised = str(exc)
+
+    assert raised is not None
+    assert "too large" in raised
+    assert "api.typesafe.ai" not in raised  # friendly message, not the raw SDK error
+    assert "1 items" in raised
+
+
+def test_jev_client_reraises_other_bad_request_errors_unchanged():
+    error = FakeTypeSafeBadRequestError("400 {\"detail\":{\"error_type\":\"invalid_model\"}}")
+    _install_fake_typesafe_sdk([], error_to_raise=error)
+    sys.modules.pop("metacurate.jev", None)
+    from metacurate.jev import JevClient
+
+    client = JevClient()
+
+    try:
+        client.ask_noul("{}", [NoulQuestion(id="a", statement="q")])
+        raised = None
+    except FakeTypeSafeBadRequestError as exc:
+        raised = exc
+
+    assert raised is error
