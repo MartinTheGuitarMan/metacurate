@@ -80,6 +80,9 @@ for result in curator.curate(catalog, "onboarding a new team admin", limit=3):
 - `SystemOneModel` — bring your own System One model (TypeSafe's Jev, an
   open alternative like `LayaClient`, or a backend of your own) through the
   `SystemOneClient.ask_noul` seam.
+- `SystemOneClassifier` — a different job: assign every item to one of a
+  fixed set of categories instead of ranking a shortlist, via the sibling
+  `ChoiceClient.ask_choice` seam (`JevClient` implements both).
 
 See [`docs/`](docs/) for the full picture: [architecture](docs/architecture.md),
 [catalog formats](docs/catalog-formats.md), [model backends](docs/model-backends.md)
