@@ -46,8 +46,11 @@ for result in curator.curate(catalog, "onboarding", limit=3):
 ### Curate with a real System One model
 
 The CLI, web app, and `SystemOneModel` all use an actual model's judgment
-instead of keyword matching — by default, `LayaClient` (requires Node.js 20+
-and `npm install @receptron/laya`; see [Model backends](docs/model-backends.md)):
+instead of keyword matching. The CLI defaults to `LayaClient` (requires
+Node.js 20+ and `npm install @receptron/laya`); the web app defaults to
+`JevClient` (requires `pip install metacurate[jev]` and a `TYPESAFE_API_KEY`,
+or set `METACURATE_MODEL=laya` to switch it) — see
+[Model backends](docs/model-backends.md):
 
 ```bash
 metacurate examples/articles.json "onboarding a new team admin" -n 3

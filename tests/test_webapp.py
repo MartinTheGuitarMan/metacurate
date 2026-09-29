@@ -1,3 +1,4 @@
+import base64
 import io
 
 from metacurate.webapp import create_app
@@ -6,6 +7,11 @@ from metacurate.webapp import create_app
 class FakeModel:
     def curate(self, items, use_case, limit):
         return [(item.id, f"matches '{use_case}'") for item in items[:limit]]
+
+
+def _basic_auth_header(username: str, password: str) -> dict:
+    token = base64.b64encode(f"{username}:{password}".encode()).decode()
+    return {"Authorization": f"Basic {token}"}
 
 
 def test_get_index_renders_form():
@@ -88,3 +94,40 @@ def test_empty_catalog_shows_error():
     data = {"catalog": (io.BytesIO(b"[]"), "catalog.json"), "question": "demo"}
     response = client.post("/", data=data, content_type="multipart/form-data")
     assert b"no rows" in response.data
+
+
+def test_no_auth_required_when_password_env_unset(monkeypatch):
+    monkeypatch.delenv("WEBAPP_PASSWORD", raising=False)
+    client = create_app(model=FakeModel()).test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+
+
+def test_missing_credentials_rejected_when_password_set(monkeypatch):
+    monkeypatch.setenv("WEBAPP_PASSWORD", "secret")
+    client = create_app(model=FakeModel()).test_client()
+    response = client.get("/")
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"].startswith("Basic")
+
+
+def test_wrong_credentials_rejected_when_password_set(monkeypatch):
+    monkeypatch.setenv("WEBAPP_PASSWORD", "secret")
+    client = create_app(model=FakeModel()).test_client()
+    response = client.get("/", headers=_basic_auth_header("metacurate", "wrong"))
+    assert response.status_code == 401
+
+
+def test_correct_credentials_accepted_when_password_set(monkeypatch):
+    monkeypatch.setenv("WEBAPP_PASSWORD", "secret")
+    client = create_app(model=FakeModel()).test_client()
+    response = client.get("/", headers=_basic_auth_header("metacurate", "secret"))
+    assert response.status_code == 200
+
+
+def test_custom_username_respected(monkeypatch):
+    monkeypatch.setenv("WEBAPP_PASSWORD", "secret")
+    monkeypatch.setenv("WEBAPP_USERNAME", "admin")
+    client = create_app(model=FakeModel()).test_client()
+    response = client.get("/", headers=_basic_auth_header("admin", "secret"))
+    assert response.status_code == 200

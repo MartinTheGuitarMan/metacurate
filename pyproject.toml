@@ -10,6 +10,7 @@ dependencies = []
 [project.optional-dependencies]
 web = ["flask>=3.0", "openpyxl>=3.1"]
 jev = ["typesafe-sdk>=0.7,<1"]
+deploy = ["flask>=3.0", "openpyxl>=3.1", "typesafe-sdk>=0.7,<1", "gunicorn>=23.0"]
 dev = ["pytest>=8.0", "flask>=3.0", "openpyxl>=3.1", "typesafe-sdk>=0.7,<1"]
 
 [project.scripts]

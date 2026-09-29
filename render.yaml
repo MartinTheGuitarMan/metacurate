@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: metacurate
+    runtime: python
+    plan: free
+    buildCommand: pip install -e ".[deploy]"
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT metacurate.webapp:app
+    envVars:
+      - key: TYPESAFE_API_KEY
+        sync: false
+      - key: WEBAPP_PASSWORD
+        sync: false
+      - key: METACURATE_MODEL
+        value: jev
