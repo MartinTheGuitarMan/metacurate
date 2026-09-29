@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from pathlib import Path
 
@@ -11,6 +12,23 @@ from .curator import Curator
 from .models import CurationModel, SystemOneModel
 
 ALLOWED_EXTENSIONS = {".csv", ".json", ".xlsx"}
+
+_PROBABILITY_RE = re.compile(r"probability[:\s]+([01](?:\.\d+)?)", re.IGNORECASE)
+
+
+def _probability_from_rationale(rationale: str) -> float | None:
+    """Pull a 0-1 match probability out of a rationale string, if there is one.
+
+    `SystemOneModel` always writes "match probability 0.95"; a custom
+    `CurationModel` might return free text with no such number, in which
+    case the template just shows the rationale as plain text instead of a
+    probability meter.
+    """
+    match = _PROBABILITY_RE.search(rationale)
+    if not match:
+        return None
+    value = float(match.group(1))
+    return value if 0.0 <= value <= 1.0 else None
 
 
 def _default_model() -> CurationModel:
@@ -34,6 +52,7 @@ def create_app(model: CurationModel | None = None) -> Flask:
     """Build the Flask app. Pass `model` to override the default SystemOneModel (e.g. in tests)."""
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+    app.jinja_env.filters["probability"] = _probability_from_rationale
 
     def get_model() -> CurationModel:
         return model if model is not None else _default_model()

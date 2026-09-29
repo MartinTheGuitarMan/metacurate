@@ -131,3 +131,32 @@ def test_custom_username_respected(monkeypatch):
     client = create_app(model=FakeModel()).test_client()
     response = client.get("/", headers=_basic_auth_header("admin", "secret"))
     assert response.status_code == 200
+
+
+class ProbabilityModel:
+    def curate(self, items, use_case, limit):
+        return [(item.id, "match probability 0.87") for item in items[:limit]]
+
+
+def test_probability_rationale_renders_as_percentage_meter():
+    client = create_app(model=ProbabilityModel()).test_client()
+    data = {"catalog": (io.BytesIO(b"id,name\na,Alpha\n"), "catalog.csv"), "question": "demo"}
+    response = client.post("/", data=data, content_type="multipart/form-data")
+    assert b"87%" in response.data
+    assert b"match probability 0.87" not in response.data  # replaced by the meter, not shown raw
+
+
+def test_non_probability_rationale_renders_as_plain_text():
+    client = create_app(model=FakeModel()).test_client()
+    data = {"catalog": (io.BytesIO(b"id,name\na,Alpha\n"), "catalog.csv"), "question": "demo"}
+    response = client.post("/", data=data, content_type="multipart/form-data")
+    assert b"matches &#39;demo&#39;" in response.data or b"matches 'demo'" in response.data
+
+
+def test_metadata_renders_as_key_value_list_not_raw_dict():
+    client = create_app(model=FakeModel()).test_client()
+    data = {"catalog": (io.BytesIO(b"id,name\na,Alpha\n"), "catalog.csv"), "question": "demo"}
+    response = client.post("/", data=data, content_type="multipart/form-data")
+    assert b"{&#39;name&#39;: &#39;Alpha&#39;}" not in response.data  # not a raw dict repr
+    assert b"<dt>name</dt>" in response.data
+    assert b"<dd>Alpha</dd>" in response.data
