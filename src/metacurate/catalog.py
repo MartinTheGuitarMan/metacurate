@@ -29,11 +29,11 @@ class Catalog:
 
     @classmethod
     def from_json(cls, path: str | Path) -> Catalog:
-        return cls.from_json_text(Path(path).read_text())
+        return cls.from_json_text(Path(path).read_text(encoding="utf-8-sig"))
 
     @classmethod
     def from_json_text(cls, text: str) -> Catalog:
-        data = json.loads(text)
+        data = json.loads(text.removeprefix("﻿"))
         items = []
         for index, entry in enumerate(data):
             entry = dict(entry)
@@ -43,12 +43,12 @@ class Catalog:
 
     @classmethod
     def from_csv(cls, path: str | Path) -> Catalog:
-        return cls.from_csv_text(Path(path).read_text())
+        return cls.from_csv_text(Path(path).read_text(encoding="utf-8-sig"))
 
     @classmethod
     def from_csv_text(cls, text: str) -> Catalog:
         items = []
-        for index, row in enumerate(csv.DictReader(io.StringIO(text))):
+        for index, row in enumerate(csv.DictReader(io.StringIO(text.removeprefix("﻿")))):
             row = dict(row)
             item_id = row.pop("id") if "id" in row else str(index)
             items.append(CatalogItem(id=item_id, metadata=row))

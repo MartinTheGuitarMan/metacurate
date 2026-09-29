@@ -118,9 +118,9 @@ def create_app(model: CurationModel | None = None) -> Flask:
 
 def _load_catalog(file, suffix: str) -> Catalog:
     if suffix == ".csv":
-        return Catalog.from_csv_text(file.read().decode("utf-8"))
+        return Catalog.from_csv_text(file.read().decode("utf-8-sig"))
     if suffix == ".json":
-        return Catalog.from_json_text(file.read().decode("utf-8"))
+        return Catalog.from_json_text(file.read().decode("utf-8-sig"))
     return Catalog.from_excel_bytes(file.read())
 
 
