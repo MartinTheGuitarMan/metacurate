@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 
@@ -8,10 +9,21 @@ class FakeTypeSafeBadRequestError(Exception):
     pass
 
 
-def _install_fake_typesafe_sdk(system_one_calls, error_to_raise=None):
+_MAX_TOKENS_ERROR = FakeTypeSafeBadRequestError(
+    'POST https://api.typesafe.ai/v1/systemone: 400 '
+    '{"detail":{"error_type":"max_tokens_exceeded"}} (request_id=req_test)'
+)
+
+
+def _install_fake_typesafe_sdk(system_one_calls, max_tokens_threshold=None, other_error=None):
     """Register a fake `typesafe_sdk` module so JevClient's lazy import resolves
-    to test doubles instead of the real SDK. Pass `error_to_raise` to make
-    `system_one` raise it instead of returning a fake response.
+    to test doubles instead of the real SDK.
+
+    - `other_error`: if set, every call raises this (for non-max-tokens errors).
+    - `max_tokens_threshold`: if set, a call raises the fake max_tokens_exceeded
+      error whenever it's asked more than this many questions at once —
+      simulating a request-size wall a caller can work around by splitting.
+    - Otherwise every call succeeds with a fake 0.5 probability per question.
     """
 
     class FakeNoul:
@@ -31,9 +43,11 @@ def _install_fake_typesafe_sdk(system_one_calls, error_to_raise=None):
             self.kwargs = kwargs
 
         def system_one(self, *, state, questions):
-            system_one_calls.append({"state": state, "questions": questions})
-            if error_to_raise is not None:
-                raise error_to_raise
+            system_one_calls.append({"state": state, "questions": dict(questions)})
+            if other_error is not None:
+                raise other_error
+            if max_tokens_threshold is not None and len(questions) > max_tokens_threshold:
+                raise _MAX_TOKENS_ERROR
             return FakeSystemOneResponse(
                 {qid: FakeNoulAnswer(noul=0.5) for qid in questions}
             )
@@ -111,33 +125,57 @@ def test_jev_client_missing_sdk_raises_runtime_error(monkeypatch, capsys):
     assert raised
 
 
-def test_jev_client_translates_max_tokens_exceeded_into_friendly_error():
-    error = FakeTypeSafeBadRequestError(
-        'POST https://api.typesafe.ai/v1/systemone: 400 '
-        '{"detail":{"error_type":"max_tokens_exceeded"}} (request_id=req_test)'
-    )
-    _install_fake_typesafe_sdk([], error_to_raise=error)
+def test_jev_client_splits_batch_on_max_tokens_exceeded_and_merges_results():
+    calls = []
+    _install_fake_typesafe_sdk(calls, max_tokens_threshold=2)  # >2 questions fails
     sys.modules.pop("metacurate.jev", None)
     from metacurate.jev import JevClient
 
     client = JevClient()
-    questions = [NoulQuestion(id="a", statement="q")]
+    items = [{"id": qid, "name": f"item {qid}"} for qid in "abcd"]
+    questions = [NoulQuestion(id=qid, statement=f"q about {qid}") for qid in "abcd"]
+
+    answers = client.ask_noul(json.dumps(items), questions)
+
+    assert {a.id for a in answers} == {"a", "b", "c", "d"}
+    assert all(a.probability == 0.5 for a in answers)
+
+    # First call attempted all 4 and failed; then two successful calls of 2 each.
+    sizes = [len(c["questions"]) for c in calls]
+    assert sizes == [4, 2, 2]
+
+    # Each successful sub-call's state was narrowed to just its own items,
+    # not the full original 4-item state.
+    successful = calls[1:]
+    for call in successful:
+        state_ids = {entry["id"] for entry in call["state"]}
+        assert state_ids == set(call["questions"])
+        assert len(state_ids) == 2
+
+
+def test_jev_client_raises_friendly_error_when_single_item_still_too_large():
+    calls = []
+    _install_fake_typesafe_sdk(calls, max_tokens_threshold=0)  # even 1 question fails
+    sys.modules.pop("metacurate.jev", None)
+    from metacurate.jev import JevClient
+
+    client = JevClient()
+    questions = [NoulQuestion(id="a", statement="q"), NoulQuestion(id="b", statement="q")]
 
     try:
-        client.ask_noul("{}", questions)
+        client.ask_noul('[{"id": "a"}, {"id": "b"}]', questions)
         raised = None
     except ValueError as exc:
         raised = str(exc)
 
     assert raised is not None
-    assert "too large" in raised
+    assert "alone is too large" in raised
     assert "api.typesafe.ai" not in raised  # friendly message, not the raw SDK error
-    assert "1 items" in raised
 
 
 def test_jev_client_reraises_other_bad_request_errors_unchanged():
     error = FakeTypeSafeBadRequestError("400 {\"detail\":{\"error_type\":\"invalid_model\"}}")
-    _install_fake_typesafe_sdk([], error_to_raise=error)
+    _install_fake_typesafe_sdk([], other_error=error)
     sys.modules.pop("metacurate.jev", None)
     from metacurate.jev import JevClient
 
