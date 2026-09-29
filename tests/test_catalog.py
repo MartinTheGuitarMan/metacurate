@@ -39,6 +39,29 @@ def test_from_csv_without_id_uses_row_index():
     assert [item.id for item in catalog.items] == ["0", "1"]
 
 
+def test_from_csv_text_strips_leading_bom():
+    catalog = Catalog.from_csv_text("﻿id,name\na,Alpha\n")
+    assert catalog.items[0].id == "a"
+    assert catalog.items[0].metadata == {"name": "Alpha"}
+    assert "﻿id" not in catalog.items[0].metadata  # BOM didn't leak into a column name
+
+
+def test_from_json_text_strips_leading_bom():
+    catalog = Catalog.from_json_text('﻿[{"id": "a", "name": "Alpha"}]')
+    assert catalog.items[0].id == "a"
+    assert catalog.items[0].metadata == {"name": "Alpha"}
+
+
+def test_from_csv_reads_bom_prefixed_file(tmp_path):
+    path = tmp_path / "catalog.csv"
+    path.write_bytes("id,name\na,Alpha\n".encode("utf-8-sig"))
+
+    catalog = Catalog.from_csv(path)
+
+    assert catalog.items[0].id == "a"
+    assert catalog.items[0].metadata == {"name": "Alpha"}
+
+
 def test_from_excel(tmp_path):
     from openpyxl import Workbook
 

@@ -61,6 +61,19 @@ def test_csv_upload_returns_ranked_results_respecting_limit():
     assert b"Beta" not in response.data
 
 
+def test_csv_upload_strips_bom_from_first_column_name():
+    # No "id" column, so the BOM-prefixed first column is treated as metadata,
+    # same shape as the real report: {'﻿VesselTimeseriesId': ...}.
+    client = create_app(model=FakeModel()).test_client()
+    data = {
+        "catalog": (io.BytesIO("VesselId,Name\nv1,Alpha\n".encode("utf-8-sig")), "catalog.csv"),
+        "question": "demo",
+    }
+    response = client.post("/", data=data, content_type="multipart/form-data")
+    assert b"<dt>VesselId</dt>" in response.data
+    assert "﻿VesselId".encode() not in response.data
+
+
 def test_json_upload_returns_ranked_results():
     client = create_app(model=FakeModel()).test_client()
     catalog_json = b'[{"id": "a", "name": "Alpha"}, {"id": "b", "name": "Beta"}]'
