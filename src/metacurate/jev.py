@@ -19,8 +19,14 @@ from .models import NoulAnswer, NoulQuestion
 class JevClient:
     """Implements SystemOneClient.ask_noul against TypeSafe's Jev API.
 
-    Batches every catalog item into a single `system_one` call, one Noul
-    question per item, keyed by item id.
+    Sends every catalog item as one `system_one` call, one Noul question per
+    item, keyed by item id. If the catalog is too large for a single request
+    (`max_tokens_exceeded`), it's split in half and each half retried —
+    recursively, so it converges on however many requests actually fit —
+    rather than failing outright. When `state` is a JSON array of
+    `{"id": ..., ...}` objects (what `SystemOneModel` builds), each half's
+    state is narrowed to just its own items, so splitting actually reduces
+    the tokens sent, not just the question count.
     """
 
     def __init__(self, **client_kwargs: Any):
@@ -42,21 +48,43 @@ class JevClient:
             parsed_state = json.loads(state)
         except json.JSONDecodeError:
             parsed_state = state
+        return self._ask_noul_batch(parsed_state, questions)
 
+    def _ask_noul_batch(self, parsed_state, questions: list[NoulQuestion]) -> list[NoulAnswer]:
         try:
             result = self._client.system_one(
-                state=parsed_state,
+                state=self._state_for(parsed_state, questions),
                 questions={q.id: self._Noul(instructions=q.statement) for q in questions},
             )
         except self._TypeSafeBadRequestError as exc:
-            if "max_tokens_exceeded" in str(exc):
+            if "max_tokens_exceeded" not in str(exc):
+                raise
+            if len(questions) <= 1:
                 raise ValueError(
-                    f"This catalog is too large for Jev to score in one request "
-                    f"({len(questions)} items). Try a smaller catalog, or fewer "
-                    "items per request — see docs/model-backends.md for scoping tips."
+                    f"Item '{questions[0].id}' alone is too large for Jev to score "
+                    "— its metadata plus the use case description exceed the "
+                    "per-request token limit. Trim its metadata or shorten the "
+                    "use case description."
                 ) from exc
-            raise
+            mid = len(questions) // 2
+            return self._ask_noul_batch(parsed_state, questions[:mid]) + self._ask_noul_batch(
+                parsed_state, questions[mid:]
+            )
         return [NoulAnswer(id=q.id, probability=result.nouls[q.id].noul) for q in questions]
+
+    @staticmethod
+    def _state_for(parsed_state, questions: list[NoulQuestion]):
+        """Narrow `parsed_state` to just the items `questions` asks about, when
+        it's a list of `{"id": ..., ...}` objects (SystemOneModel's shape).
+        Anything else (a plain string, a dict, ...) can't be subset per-item,
+        so it's sent unchanged — splitting still reduces the question count,
+        just not the state.
+        """
+        if not isinstance(parsed_state, list):
+            return parsed_state
+        wanted = {q.id for q in questions}
+        subset = [entry for entry in parsed_state if isinstance(entry, dict) and entry.get("id") in wanted]
+        return subset if len(subset) == len(wanted) else parsed_state
 
     def close(self) -> None:
         self._client.close()

@@ -67,9 +67,22 @@ curator = Curator(model=SystemOneModel(client=JevClient()))
 Pass constructor keyword arguments straight through to `TypeSafeClient`,
 e.g. `JevClient(model="jev-1.13.0", timeout=30.0)`.
 
+**Catalogs too large for one request**: Jev caps how many tokens (state +
+questions) fit in a single `system_one` call. `JevClient` handles this
+itself — on `max_tokens_exceeded` it splits the batch in half and retries
+each half (recursively, so it converges on however many requests actually
+fit), narrowing `state` to just each half's own items so the retry is
+actually smaller, not just fewer questions over the same state. This is
+transparent: a 130-item catalog that fails outright in one request still
+returns a single, correctly-ranked result — just via a few requests under
+the hood instead of one. Only a single item whose own metadata (plus the
+use case text) exceeds the limit on its own raises a `ValueError` naming
+that item, since there's nothing left to split.
+
 **Errors**: a missing `typesafe-sdk` install raises `RuntimeError` with
-install instructions; everything else (auth, rate limits, connectivity)
-surfaces as the SDK's own typed exceptions (`TypeSafeAuthenticationError`,
+install instructions; a single item too large to fit even alone raises
+`ValueError`; everything else (auth, rate limits, connectivity) surfaces
+as the SDK's own typed exceptions (`TypeSafeAuthenticationError`,
 `TypeSafeRateLimitError`, `TypeSafeAPIConnectionError`, etc.).
 
 ## `LayaClient` — a ready-made `SystemOneClient`
