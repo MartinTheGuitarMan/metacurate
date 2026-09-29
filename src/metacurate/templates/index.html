@@ -76,6 +76,16 @@
     th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; vertical-align: top; }
     th { font-size: 0.8rem; text-transform: uppercase; color: #666; }
     .rank { font-weight: 700; width: 2rem; }
+    .meta { margin: 0; display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+    .meta div { display: flex; gap: 0.4rem; }
+    .meta dt { color: #888; flex: none; }
+    .meta dt::after { content: ":"; }
+    .meta dd { margin: 0; color: #222; word-break: break-word; }
+    .why { min-width: 9rem; }
+    .score-row { display: flex; align-items: center; gap: 0.5rem; }
+    .score-pct { font-weight: 700; font-variant-numeric: tabular-nums; width: 2.6rem; flex: none; }
+    .meter-track { flex: 1; height: 0.5rem; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .meter-fill { height: 100%; background: #2563eb; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -126,11 +136,27 @@
         </thead>
         <tbody>
           {% for result in results %}
+            {% set score = result.rationale | probability %}
             <tr>
               <td class="rank">{{ loop.index }}</td>
               <td>{{ result.item.id }}</td>
-              <td>{{ result.item.metadata }}</td>
-              <td>{{ result.rationale }}</td>
+              <td>
+                <dl class="meta">
+                  {% for key, value in result.item.metadata.items() %}
+                    <div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>
+                  {% endfor %}
+                </dl>
+              </td>
+              <td class="why">
+                {% if score is not none %}
+                  <div class="score-row">
+                    <span class="score-pct">{{ (score * 100) | round | int }}%</span>
+                    <span class="meter-track"><span class="meter-fill" style="width: {{ (score * 100) | round | int }}%"></span></span>
+                  </div>
+                {% else %}
+                  {{ result.rationale }}
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
