@@ -25,7 +25,7 @@ class JevClient:
 
     def __init__(self, **client_kwargs: Any):
         try:
-            from typesafe_sdk import Noul, TypeSafeClient
+            from typesafe_sdk import Noul, TypeSafeBadRequestError, TypeSafeClient
         except ImportError as exc:
             raise RuntimeError(
                 "JevClient requires the `typesafe-sdk` package: "
@@ -34,6 +34,7 @@ class JevClient:
                 "(see https://docs.typesafe.ai/sdk/python/)."
             ) from exc
         self._Noul = Noul
+        self._TypeSafeBadRequestError = TypeSafeBadRequestError
         self._client = TypeSafeClient(**client_kwargs)
 
     def ask_noul(self, state: str, questions: list[NoulQuestion]) -> list[NoulAnswer]:
@@ -42,10 +43,19 @@ class JevClient:
         except json.JSONDecodeError:
             parsed_state = state
 
-        result = self._client.system_one(
-            state=parsed_state,
-            questions={q.id: self._Noul(instructions=q.statement) for q in questions},
-        )
+        try:
+            result = self._client.system_one(
+                state=parsed_state,
+                questions={q.id: self._Noul(instructions=q.statement) for q in questions},
+            )
+        except self._TypeSafeBadRequestError as exc:
+            if "max_tokens_exceeded" in str(exc):
+                raise ValueError(
+                    f"This catalog is too large for Jev to score in one request "
+                    f"({len(questions)} items). Try a smaller catalog, or fewer "
+                    "items per request — see docs/model-backends.md for scoping tips."
+                ) from exc
+            raise
         return [NoulAnswer(id=q.id, probability=result.nouls[q.id].noul) for q in questions]
 
     def close(self) -> None:
