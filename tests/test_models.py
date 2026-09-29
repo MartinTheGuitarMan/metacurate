@@ -1,5 +1,12 @@
 from metacurate.catalog import CatalogItem
-from metacurate.models import NoulAnswer, NoulQuestion, SystemOneModel
+from metacurate.models import (
+    ChoiceAnswer,
+    ChoiceQuestion,
+    NoulAnswer,
+    NoulQuestion,
+    SystemOneClassifier,
+    SystemOneModel,
+)
 
 
 class FakeSystemOneClient:
@@ -38,3 +45,48 @@ def test_system_one_model_asks_one_noul_question_per_item():
     assert len(client.last_questions) == 2
     assert all(isinstance(q, NoulQuestion) for q in client.last_questions)
     assert all("demo" in q.statement for q in client.last_questions)
+
+
+class FakeChoiceClient:
+    def __init__(self, choices):
+        self.choices = choices  # {item_id: (choice, confidence)}
+        self.last_state = None
+        self.last_questions = None
+
+    def ask_choice(self, state, questions):
+        self.last_state = state
+        self.last_questions = questions
+        return [
+            ChoiceAnswer(id=q.id, choice=self.choices[q.id][0], confidence=self.choices[q.id][1])
+            for q in questions
+        ]
+
+
+def test_system_one_classifier_returns_one_pick_per_item():
+    items = [
+        CatalogItem(id="a", metadata={"name": "Alpha"}),
+        CatalogItem(id="b", metadata={"name": "Beta"}),
+    ]
+    client = FakeChoiceClient({"a": ("Mechanical", 0.9), "b": ("Electrical", 0.7)})
+    classifier = SystemOneClassifier(client=client)
+
+    picks = classifier.classify(items, "which team owns this?", ["Mechanical", "Electrical"])
+
+    assert set(picks) == {("a", "Mechanical", 0.9), ("b", "Electrical", 0.7)}
+
+
+def test_system_one_classifier_asks_one_choice_question_per_item_with_the_given_options():
+    items = [CatalogItem(id="a", metadata={}), CatalogItem(id="b", metadata={})]
+    client = FakeChoiceClient({"a": ("X", 1.0), "b": ("Y", 1.0)})
+    classifier = SystemOneClassifier(client=client)
+
+    classifier.classify(items, "pick one", ["X", "Y"])
+
+    assert len(client.last_questions) == 2
+    assert all(isinstance(q, ChoiceQuestion) for q in client.last_questions)
+    assert all(q.options == ["X", "Y"] for q in client.last_questions)
+    # Each item's own id must be embedded in its statement, so a System One
+    # model evaluating the whole catalog as shared state can tell which
+    # question is about which item.
+    assert client.last_questions[0].statement == "For item 'a': pick one"
+    assert client.last_questions[1].statement == "For item 'b': pick one"

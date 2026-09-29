@@ -76,7 +76,17 @@
     th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; vertical-align: top; }
     th { font-size: 0.8rem; text-transform: uppercase; color: #666; }
     .rank { font-weight: 700; width: 2rem; }
-    .meta { margin: 0; display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
+    .meta-details summary {
+      cursor: pointer;
+      color: #2563eb;
+      font-size: 0.85rem;
+      list-style: none;
+    }
+    .meta-details summary::-webkit-details-marker { display: none; }
+    .meta-details summary::before { content: "▸ "; }
+    .meta-details[open] summary::before { content: "▾ "; }
+    .meta-details summary:hover { text-decoration: underline; }
+    .meta { margin: 0.4rem 0 0; display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; }
     .meta div { display: flex; gap: 0.4rem; }
     .meta dt { color: #888; flex: none; }
     .meta dt::after { content: ":"; }
@@ -141,11 +151,14 @@
               <td class="rank">{{ loop.index }}</td>
               <td>{{ result.item.id }}</td>
               <td>
-                <dl class="meta">
-                  {% for key, value in result.item.metadata.items() %}
-                    <div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>
-                  {% endfor %}
-                </dl>
+                <details class="meta-details">
+                  <summary>{{ result.item.metadata|length }} field{{ "s" if result.item.metadata|length != 1 else "" }}</summary>
+                  <dl class="meta">
+                    {% for key, value in result.item.metadata.items() %}
+                      <div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>
+                    {% endfor %}
+                  </dl>
+                </details>
               </td>
               <td class="why">
                 {% if score is not none %}

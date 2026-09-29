@@ -2,7 +2,7 @@ import json
 import sys
 import types
 
-from metacurate.models import NoulQuestion
+from metacurate.models import ChoiceQuestion, NoulQuestion
 
 
 class FakeTypeSafeBadRequestError(Exception):
@@ -34,9 +34,20 @@ def _install_fake_typesafe_sdk(system_one_calls, max_tokens_threshold=None, othe
         def __init__(self, noul):
             self.noul = noul
 
+    class FakeChoice:
+        def __init__(self, instructions, criteria):
+            self.instructions = instructions
+            self.criteria = criteria
+
+    class FakeChoiceAnswer:
+        def __init__(self, choice, confidence):
+            self.choice = choice
+            self.confidence = confidence
+
     class FakeSystemOneResponse:
-        def __init__(self, nouls):
-            self.nouls = nouls
+        def __init__(self, nouls=None, choices=None):
+            self.nouls = nouls or {}
+            self.choices = choices or {}
 
     class FakeTypeSafeClient:
         def __init__(self, **kwargs):
@@ -48,15 +59,20 @@ def _install_fake_typesafe_sdk(system_one_calls, max_tokens_threshold=None, othe
                 raise other_error
             if max_tokens_threshold is not None and len(questions) > max_tokens_threshold:
                 raise _MAX_TOKENS_ERROR
-            return FakeSystemOneResponse(
-                {qid: FakeNoulAnswer(noul=0.5) for qid in questions}
-            )
+            nouls, choices = {}, {}
+            for qid, q in questions.items():
+                if isinstance(q, FakeChoice):
+                    choices[qid] = FakeChoiceAnswer(choice=next(iter(q.criteria)), confidence=0.9)
+                else:
+                    nouls[qid] = FakeNoulAnswer(noul=0.5)
+            return FakeSystemOneResponse(nouls=nouls, choices=choices)
 
         def close(self):
             pass
 
     module = types.ModuleType("typesafe_sdk")
     module.Noul = FakeNoul
+    module.Choice = FakeChoice
     module.TypeSafeClient = FakeTypeSafeClient
     module.TypeSafeBadRequestError = FakeTypeSafeBadRequestError
     sys.modules["typesafe_sdk"] = module
@@ -188,3 +204,68 @@ def test_jev_client_reraises_other_bad_request_errors_unchanged():
         raised = exc
 
     assert raised is error
+
+
+def test_jev_client_sends_one_choice_question_per_item():
+    calls = []
+    _install_fake_typesafe_sdk(calls)
+    sys.modules.pop("metacurate.jev", None)
+    from metacurate.jev import JevClient
+
+    client = JevClient()
+    questions = [
+        ChoiceQuestion(id="a", statement="Which category fits 'a'?", options=["X", "Y"]),
+        ChoiceQuestion(id="b", statement="Which category fits 'b'?", options=["X", "Y"]),
+    ]
+
+    answers = client.ask_choice('[{"id": "a"}, {"id": "b"}]', questions)
+
+    assert len(calls) == 1
+    sent = calls[0]["questions"]
+    assert set(sent) == {"a", "b"}
+    assert sent["a"].instructions == "Which category fits 'a'?"
+    assert sent["a"].criteria == {"X": None, "Y": None}
+    assert {a.id for a in answers} == {"a", "b"}
+    assert all(a.choice == "X" for a in answers)  # fake always picks the first option
+    assert all(a.confidence == 0.9 for a in answers)
+
+
+def test_jev_client_splits_choice_batch_on_max_tokens_exceeded_and_merges_results():
+    calls = []
+    _install_fake_typesafe_sdk(calls, max_tokens_threshold=2)
+    sys.modules.pop("metacurate.jev", None)
+    from metacurate.jev import JevClient
+
+    client = JevClient()
+    items = [{"id": qid, "name": f"item {qid}"} for qid in "abcd"]
+    questions = [
+        ChoiceQuestion(id=qid, statement=f"q about {qid}", options=["X", "Y"]) for qid in "abcd"
+    ]
+
+    answers = client.ask_choice(json.dumps(items), questions)
+
+    assert {a.id for a in answers} == {"a", "b", "c", "d"}
+    sizes = [len(c["questions"]) for c in calls]
+    assert sizes == [4, 2, 2]
+
+
+def test_jev_client_choice_and_noul_share_the_same_max_tokens_error_message():
+    calls = []
+    _install_fake_typesafe_sdk(calls, max_tokens_threshold=0)
+    sys.modules.pop("metacurate.jev", None)
+    from metacurate.jev import JevClient
+
+    client = JevClient()
+    questions = [
+        ChoiceQuestion(id="a", statement="q", options=["X"]),
+        ChoiceQuestion(id="b", statement="q", options=["X"]),
+    ]
+
+    try:
+        client.ask_choice('[{"id": "a"}, {"id": "b"}]', questions)
+        raised = None
+    except ValueError as exc:
+        raised = str(exc)
+
+    assert raised is not None
+    assert "alone is too large" in raised

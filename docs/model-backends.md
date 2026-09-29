@@ -1,8 +1,11 @@
 # Model backends
 
-Every backend implements `CurationModel.curate(items, use_case, limit) ->
-list[tuple[str, str]]` (see [architecture.md](architecture.md)). This page
-covers the ones metacurate ships, and how to add your own.
+Most backends implement `CurationModel.curate(items, use_case, limit) ->
+list[tuple[str, str]]` (see [architecture.md](architecture.md)); a couple
+implement `ClassificationModel.classify(items, question, categories) ->
+list[tuple[str, str, float]]` instead — a different job (label every item)
+covered further down. This page covers the ones metacurate ships, and how
+to add your own.
 
 ## `SystemOneModel` and `SystemOneClient` — bring your own System One model
 
@@ -84,6 +87,49 @@ install instructions; a single item too large to fit even alone raises
 `ValueError`; everything else (auth, rate limits, connectivity) surfaces
 as the SDK's own typed exceptions (`TypeSafeAuthenticationError`,
 `TypeSafeRateLimitError`, `TypeSafeAPIConnectionError`, etc.).
+
+## `SystemOneClassifier` and `ChoiceClient` — classify instead of curate
+
+A different job from `curate()`: `SystemOneClassifier` assigns *every*
+catalog item to one of a fixed set of categories, rather than filtering or
+ranking a shortlist. It's the `Choice` primitive's counterpart to
+`SystemOneModel`'s `Noul` — same one-request-per-catalog design, different
+question type.
+
+```python
+class ChoiceClient(Protocol):
+    def ask_choice(self, state: str, questions: list[ChoiceQuestion]) -> list[ChoiceAnswer]:
+        ...
+```
+
+`ChoiceQuestion(id, statement, options)` and `ChoiceAnswer(id, choice,
+confidence)` mirror `NoulQuestion`/`NoulAnswer`. `ChoiceClient` is a
+separate protocol from `SystemOneClient` — not every backend that answers
+Noul questions also supports Choice (`LayaClient`, as currently wired up,
+only speaks Noul); implement it only for a backend that actually can.
+`JevClient` implements both:
+
+```python
+from metacurate import Catalog
+from metacurate.jev import JevClient
+from metacurate.models import SystemOneClassifier
+
+catalog = Catalog.from_json("examples/articles.json")
+classifier = SystemOneClassifier(client=JevClient())
+
+picks = classifier.classify(
+    list(catalog),
+    question="Which category best fits this help-center article?",
+    categories=["Onboarding", "Billing", "Developer", "Admin"],
+)
+for item_id, category, confidence in picks:
+    print(item_id, "-", category, f"({confidence:.2f})")
+```
+
+Same auto-chunking as `ask_noul` on `max_tokens_exceeded` — both share the
+same batching/retry core in `JevClient`, so a catalog too large for one
+`classify()` request splits and merges transparently the same way `curate()`
+does.
 
 ## `LayaClient` — a ready-made `SystemOneClient`
 

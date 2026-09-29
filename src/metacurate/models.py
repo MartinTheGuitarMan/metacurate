@@ -87,3 +87,71 @@ class SystemOneModel:
             (answer.id, f"match probability {answer.probability:.2f}")
             for answer in ranked[:limit]
         ]
+
+
+@dataclass(frozen=True)
+class ChoiceQuestion:
+    """A single "pick one of these options" question to evaluate against a
+    System One model's shared state."""
+
+    id: str
+    statement: str
+    options: list[str]
+
+
+@dataclass(frozen=True)
+class ChoiceAnswer:
+    """A System One model's answer to one ChoiceQuestion: the chosen option,
+    plus the model's confidence in that choice, 0-1."""
+
+    id: str
+    choice: str
+    confidence: float
+
+
+class ChoiceClient(Protocol):
+    """The slice of a System One model's API/SDK a `classify()`-style task
+    needs — the `Choice` primitive, a sibling to `Noul` (see
+    `SystemOneClient`) that picks one of several named options instead of a
+    yes/no probability. Separate from `SystemOneClient` since not every
+    backend that answers Noul questions also supports Choice (e.g. Laya, as
+    currently wired up, only speaks Noul) — implement this only for a
+    backend that actually can.
+    """
+
+    def ask_choice(self, state: str, questions: list[ChoiceQuestion]) -> list[ChoiceAnswer]:
+        ...
+
+
+class ClassificationModel(Protocol):
+    """Anything that can assign every catalog item to one of a fixed set of
+    categories. A different job than `CurationModel`: classify labels
+    *every* item, it doesn't filter or rank a shortlist.
+    """
+
+    def classify(
+        self, items: list[CatalogItem], question: str, categories: list[str]
+    ) -> list[tuple[str, str, float]]:
+        """Return (item_id, category, confidence) for every item, one pick each."""
+        ...
+
+
+class SystemOneClassifier:
+    """Classifies using any System One model that supports Choice: one
+    Choice question per catalog item, evaluated against the whole catalog as
+    shared state in a single request, each item picking one of `categories`.
+    """
+
+    def __init__(self, client: ChoiceClient):
+        self._client = client
+
+    def classify(
+        self, items: list[CatalogItem], question: str, categories: list[str]
+    ) -> list[tuple[str, str, float]]:
+        state = json.dumps([{"id": item.id, **item.metadata} for item in items])
+        questions = [
+            ChoiceQuestion(id=item.id, statement=f"For item '{item.id}': {question}", options=categories)
+            for item in items
+        ]
+        answers = self._client.ask_choice(state, questions)
+        return [(answer.id, answer.choice, answer.confidence) for answer in answers]
